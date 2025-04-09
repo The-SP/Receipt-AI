@@ -1,0 +1,9 @@
+fastapi
+uvicorn
+ollama
+python-decouple
+requests
+
+google-genai
+Pillow
+python-multipart

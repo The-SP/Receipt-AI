@@ -7,30 +7,42 @@ import { CreditsDisplay } from "@/components/credits-display";
 import { JsonViewer } from "@/components/json-viewer";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
+interface ParsedBillItem {
+  name?: string;
+  quantity?: number;
+  price?: number;
+  [key: string]: any; // Allow for additional fields
+}
+
+interface ParsedBillTax {
+  name?: string;
+  rate?: string;
+  amount?: number;
+  [key: string]: any; // Allow for additional fields
+}
+
 interface ParsedBill {
-  restaurant_name: string;
-  bill_number: string;
-  date: string;
-  items: Array<{
-    name: string;
-    quantity: number;
-    price: number;
-  }>;
-  sub_total: number;
-  taxes: Array<{
-    name: string;
-    rate: string;
-    amount: number;
-  }>;
-  grand_total: number;
-  address: string;
-  other_info: string;
+  restaurant_name?: string;
+  bill_number?: string;
+  date?: string;
+  items?: ParsedBillItem[];
+  sub_total?: number;
+  taxes?: ParsedBillTax[];
+  grand_total?: number;
+  address?: string;
+  other_info?: string;
+  [key: string]: any; // Allow for additional fields not defined in the interface
+}
+
+interface ParsedResponse {
+  type: "json" | "text";
+  data: ParsedBill | string;
 }
 
 export default function Home() {
   const [apiKey, setApiKey] = useState<string>("");
   const [credits, setCredits] = useState<number | null>(null);
-  const [parsedData, setParsedData] = useState<ParsedBill | null>(null);
+  const [parsedData, setParsedData] = useState<ParsedResponse | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -47,6 +59,7 @@ export default function Home() {
 
     setIsLoading(true);
     setError(null);
+    setParsedData(null);
     
     try {
       const formData = new FormData();
@@ -66,7 +79,16 @@ export default function Home() {
       }
       
       const data = await response.json();
-      setParsedData(data);
+      
+      // Check if the response matches our expected format
+      if (data && (data.type === "json" || data.type === "text")) {
+        setParsedData(data as ParsedResponse);
+      } else {
+        setParsedData({
+          type: "text",
+          data: data
+        });
+      }
       
       // Update credits after successful API call
       setCredits((prev) => (prev !== null ? prev - 1 : null));
@@ -115,7 +137,9 @@ export default function Home() {
               <CardHeader>
                 <CardTitle>Parsed Results</CardTitle>
                 <CardDescription>
-                  JSON output from the bill parser
+                  {parsedData.type === "json" 
+                    ? "Structured data extracted from the bill" 
+                    : "Text content extracted from the document"}
                 </CardDescription>
               </CardHeader>
               <CardContent>

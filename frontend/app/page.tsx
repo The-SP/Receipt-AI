@@ -1,17 +1,11 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
-import { ApiKeyInput } from '@/components/api-key-input';
-import { CreditsDisplay } from '@/components/credits-display';
-import { FileUpload } from '@/components/file-upload';
-import { JsonViewer } from '@/components/json-viewer';
+import { useState } from "react";
+import { FileUpload } from "@/components/file-upload";
+import { ApiKeyInput } from "@/components/api-key-input";
+import { CreditsDisplay } from "@/components/credits-display";
+import { JsonViewer } from "@/components/json-viewer";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 interface ParsedBill {
   restaurant_name: string;
@@ -34,53 +28,50 @@ interface ParsedBill {
 }
 
 export default function Home() {
-  const [apiKey, setApiKey] = useState<string>('');
+  const [apiKey, setApiKey] = useState<string>("");
   const [credits, setCredits] = useState<number | null>(null);
   const [parsedData, setParsedData] = useState<ParsedBill | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
-  const handleApiKeyChange = (key: string) => {
+  const handleApiKeyChange = (key: string, remainingCredits: number | null) => {
     setApiKey(key);
-    // In a real app, you might validate the key here and fetch the credits
-    setCredits(5); // Mocked for now
+    setCredits(remainingCredits);
   };
 
   const handleFileUpload = async (file: File) => {
     if (!apiKey) {
-      setError('Please enter an API key first');
+      setError("Please enter an API key first");
       return;
     }
 
     setIsLoading(true);
     setError(null);
-
+    
     try {
       const formData = new FormData();
-      formData.append('file', file);
-
-      const response = await fetch('/api/proxy/parse_bill', {
-        method: 'POST',
+      formData.append("file", file);
+      
+      const response = await fetch("/api/proxy/parse_bill", {
+        method: "POST",
         headers: {
-          'X-API-Key': apiKey,
+          "X-API-Key": apiKey,
         },
         body: formData,
       });
-
+      
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.detail || 'Failed to parse bill');
+        throw new Error(errorData.detail || "Failed to parse bill");
       }
-
+      
       const data = await response.json();
       setParsedData(data);
-
+      
       // Update credits after successful API call
       setCredits((prev) => (prev !== null ? prev - 1 : null));
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : 'An unknown error occurred'
-      );
+      setError(err instanceof Error ? err.message : "An unknown error occurred");
     } finally {
       setIsLoading(false);
     }
@@ -101,10 +92,13 @@ export default function Home() {
               <div className="flex flex-col space-y-4">
                 <ApiKeyInput value={apiKey} onChange={handleApiKeyChange} />
                 {credits !== null && <CreditsDisplay credits={credits} />}
-                <FileUpload
-                  onFileUpload={handleFileUpload}
-                  isLoading={isLoading}
-                />
+                {apiKey && credits !== null ? (
+                  <FileUpload onFileUpload={handleFileUpload} isLoading={isLoading} />
+                ) : (
+                  <div className="p-4 bg-muted/50 rounded-md text-center">
+                    <p className="text-muted-foreground">Please enter and validate your API key to upload bills</p>
+                  </div>
+                )}
                 {error && (
                   <div className="p-4 mt-4 bg-red-50 text-red-500 rounded-md">
                     {error}

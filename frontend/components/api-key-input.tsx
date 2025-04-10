@@ -1,18 +1,51 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
-import { Eye, EyeOff } from 'lucide-react';
-import { Label } from '@/components/ui/label';
+import { useState } from "react";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Eye, EyeOff } from "lucide-react";
+import { Label } from "@/components/ui/label";
 
 interface ApiKeyInputProps {
   value: string;
-  onChange: (value: string) => void;
+  onChange: (value: string, credits: number | null) => void;
 }
 
 export function ApiKeyInput({ value, onChange }: ApiKeyInputProps) {
   const [showKey, setShowKey] = useState(false);
+  const [isValidating, setIsValidating] = useState(false);
+  const [validationError, setValidationError] = useState<string | null>(null);
+
+  const validateApiKey = async () => {
+    if (!value) return;
+    
+    setIsValidating(true);
+    setValidationError(null);
+    
+    try {
+      const response = await fetch("/api/proxy/validate-key", {
+        method: "GET",
+        headers: {
+          "X-API-Key": value
+        }
+      });
+      
+      const data = await response.json();
+      
+      if (!response.ok) {
+        setValidationError(data.detail || "Invalid API key");
+        onChange("", null); // Reset API key and credits
+      } else {
+        // Pass the validated key and the credits back to parent
+        onChange(value, data.remaining_credits);
+      }
+    } catch (error) {
+      setValidationError("Failed to validate API key");
+      onChange("", null);
+    } finally {
+      setIsValidating(false);
+    }
+  };
 
   return (
     <div className="space-y-2">
@@ -21,9 +54,12 @@ export function ApiKeyInput({ value, onChange }: ApiKeyInputProps) {
         <div className="relative flex-grow">
           <Input
             id="api-key"
-            type={showKey ? 'text' : 'password'}
+            type={showKey ? "text" : "password"}
             value={value}
-            onChange={(e) => onChange(e.target.value)}
+            onChange={(e) => {
+              onChange(e.target.value, null);
+              setValidationError(null);
+            }}
             placeholder="Enter your API key"
             className="pr-10"
           />
@@ -42,15 +78,19 @@ export function ApiKeyInput({ value, onChange }: ApiKeyInputProps) {
         <Button
           type="button"
           variant="outline"
-          onClick={() => onChange(value)}
-          disabled={!value}
+          onClick={validateApiKey}
+          disabled={!value || isValidating}
         >
-          Validate
+          {isValidating ? "Validating..." : "Validate"}
         </Button>
       </div>
-      <p className="text-xs text-gray-500">
-        Enter your API key to access the bill parsing service
-      </p>
+      {validationError ? (
+        <p className="text-xs text-red-500">{validationError}</p>
+      ) : (
+        <p className="text-xs text-gray-500">
+          Enter your API key to access the bill parsing service
+        </p>
+      )}
     </div>
   );
 }

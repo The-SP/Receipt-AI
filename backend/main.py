@@ -40,9 +40,19 @@ def generate_gemini(prompt: str, x_api_key: str = Depends(verify_api_key)):
 
 
 @app.post("/parse_bill")
-async def upload_bill(file: UploadFile = File(...)):
+async def upload_bill(file: UploadFile = File(...), x_api_key: str = Depends(verify_api_key)):
     if not file.content_type.startswith("image/"):
         raise HTTPException(
             status_code=400, detail="Invalid file type. Please upload an image."
         )
     return await parse_bill(file)
+
+
+@app.get("/validate-key")
+def validate_api_key(x_api_key: str = Header(None)):
+    remaining_credits = API_KEY_CREDITS.get(x_api_key)
+
+    if remaining_credits is None:
+        raise HTTPException(status_code=403, detail="Invalid API key")
+
+    return {"valid": True, "remaining_credits": remaining_credits}

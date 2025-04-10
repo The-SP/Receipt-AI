@@ -16,12 +16,13 @@ client = genai.Client(api_key=GEMINI_API_KEY)
 async def parse_bill(file: UploadFile):
     """
     Parses a bill image using Gemini API and returns the information in JSON format.
+    If the image is not a receipt, returns the text analysis instead.
 
     Args:
         file: UploadFile object containing the bill image.
 
     Returns:
-        A JSON object containing the parsed bill information.
+        A JSON object containing either the parsed bill information or text analysis.
 
     Raises:
         HTTPException: If there is an error during processing.
@@ -65,13 +66,18 @@ async def parse_bill(file: UploadFile):
             contents=[prompt, image],
         )
 
-        if response.text:
-            return clean_and_parse_json(response.text)
+        json_result = clean_and_parse_json(response.text)
+        if json_result:
+            return {
+                "type": "json",
+                "data": json_result
+            }
+        # If JSON parsing fails, return the text with a type indicator
         else:
-            raise HTTPException(
-                status_code=500, detail="Gemini API returned an empty response."
-            )
-
+            return {
+                "type": "text",
+                "data": response.text
+            }
     except FileNotFoundError:
         raise HTTPException(status_code=400, detail="Image file not found.")
     except Exception as e:

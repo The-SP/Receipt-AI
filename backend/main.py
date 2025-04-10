@@ -40,7 +40,9 @@ def generate_gemini(prompt: str, x_api_key: str = Depends(verify_api_key)):
 
 
 @app.post("/parse_bill")
-async def upload_bill(file: UploadFile = File(...), x_api_key: str = Depends(verify_api_key)):
+async def upload_bill(
+    file: UploadFile = File(...), x_api_key: str = Depends(verify_api_key)
+):
     if not file.content_type.startswith("image/"):
         raise HTTPException(
             status_code=400, detail="Invalid file type. Please upload an image."

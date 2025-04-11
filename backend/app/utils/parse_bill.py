@@ -5,7 +5,7 @@ from fastapi import HTTPException, UploadFile
 from google import genai
 from PIL import Image
 
-from logger import init_logger
+from .logger import init_logger
 
 logger = init_logger(__name__)
 

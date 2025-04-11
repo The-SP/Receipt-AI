@@ -3,6 +3,7 @@ uvicorn
 ollama
 python-decouple
 requests
+fastapi-limiter
 
 google-genai
 Pillow

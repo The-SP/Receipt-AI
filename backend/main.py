@@ -1,10 +1,12 @@
 from decouple import config
 from fastapi import Depends, FastAPI, File, Header, HTTPException, UploadFile
+from fastapi_limiter.depends import RateLimiter
 from google import genai
 
 from parse_bill import parse_bill
+from rate_limiting import lifespan
 
-app = FastAPI()
+app = FastAPI(lifespan=lifespan)
 
 API_KEY_CREDITS = {
     config("API_ACCESS_KEY"): 5,
@@ -12,6 +14,14 @@ API_KEY_CREDITS = {
 
 GEMINI_API_KEY = config("GEMINI_API_KEY")
 GEMINI_MODEL_NAME = config("GEMINI_MODEL_NAME", default="gemini-1.5-flash")
+
+
+@app.get("/", dependencies=[
+    Depends(RateLimiter(times=3, minutes=1)),
+    Depends(RateLimiter(times=10, hours=1)),
+])
+def index():
+    return {"Hello": "World"}
 
 
 def verify_api_key(x_api_key: str = Header(None)):
@@ -39,7 +49,10 @@ def generate_gemini(prompt: str, x_api_key: str = Depends(verify_api_key)):
         raise HTTPException(status_code=500, detail=f"Gemini API error: {e}")
 
 
-@app.post("/parse_bill")
+@app.post("/parse_bill", dependencies=[
+    Depends(RateLimiter(times=1, minutes=1)),
+    Depends(RateLimiter(times=10, hours=1)),
+])
 async def upload_bill(
     file: UploadFile = File(...), x_api_key: str = Depends(verify_api_key)
 ):

@@ -47,6 +47,8 @@ async def upload_bill(
         raise HTTPException(
             status_code=400, detail="Invalid file type. Please upload an image."
         )
+    
+    API_KEY_CREDITS[x_api_key] -= 1
     return await parse_bill(file)
 
 

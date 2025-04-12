@@ -1,11 +1,13 @@
 import json
 
 from decouple import config
-from fastapi import FastAPI, HTTPException, UploadFile
+from fastapi import HTTPException, UploadFile
 from google import genai
 from PIL import Image
 
-app = FastAPI()
+from .logger import init_logger
+
+logger = init_logger(__name__)
 
 GEMINI_API_KEY = config("GEMINI_API_KEY")
 MODEL_NAME = "gemini-1.5-flash"
@@ -61,26 +63,23 @@ async def parse_bill(file: UploadFile):
         }
         """
 
+        logger.info("Sending request to Gemini API")
         response = client.models.generate_content(
             model=MODEL_NAME,
             contents=[prompt, image],
         )
 
         json_result = clean_and_parse_json(response.text)
-        if json_result:
-            return {
-                "type": "json",
-                "data": json_result
-            }
-        # If JSON parsing fails, return the text with a type indicator
-        else:
-            return {
-                "type": "text",
-                "data": response.text
-            }
+        if not json_result:
+            logger.warning(f"Failed to parse receipt: {file.filename} as JSON")
+            return {"type": "text", "data": response.text}
+        
+        logger.info(f"Successfully parsed receipt: {file.filename}")
+        return {"type": "json", "data": json_result}
     except FileNotFoundError:
         raise HTTPException(status_code=400, detail="Image file not found.")
     except Exception as e:
+        logger.error(f"Receipt processing failed: {str(e)}")
         raise HTTPException(
             status_code=500, detail=f"An unexpected error occurred: {e}"
         )
@@ -121,8 +120,8 @@ def clean_and_parse_json(response_text: str):
         return json_data
 
     except json.JSONDecodeError as e:
-        print(f"Error parsing JSON: {e}")
+        logger.warning(f"Error parsing JSON: {e}")
         return None
     except Exception as e:
-        print(f"Unexpected error: {e}")
+        logger.error(f"Unexpected error in JSON parsing: {e}")
         return None

@@ -24,10 +24,10 @@ export function Navbar() {
               </li>
               <li>
                 <Link
-                  href="#"
+                  href="/about"
                   className="text-muted-foreground hover:text-primary transition-colors"
                 >
-                  Documentation
+                  About
                 </Link>
               </li>
               <li>

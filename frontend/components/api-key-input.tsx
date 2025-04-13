@@ -39,7 +39,7 @@ export function ApiKeyInput({ value, onChange }: ApiKeyInputProps) {
         // Pass the validated key and the credits back to parent
         onChange(value, data.remaining_credits);
       }
-    } catch (error) {
+    } catch {
       setValidationError("Failed to validate API key");
       onChange("", null);
     } finally {

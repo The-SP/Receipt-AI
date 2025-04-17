@@ -16,6 +16,12 @@ GEMINI_API_KEY = config("GEMINI_API_KEY")
 GEMINI_MODEL_NAME = config("GEMINI_MODEL_NAME", default="gemini-1.5-flash")
 
 
+@app.get("/health")
+async def health_check():
+    health_status = {"status": "ok", "message": "API is up and running"}
+    return health_status
+
+
 @app.get(
     "/",
     dependencies=[

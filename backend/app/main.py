@@ -5,6 +5,7 @@ from google import genai
 
 from app.utils.parse_bill import parse_bill
 from app.utils.rate_limiting import lifespan
+from app.utils.token_usage import calculate_and_log_usage
 
 app = FastAPI(lifespan=lifespan)
 
@@ -13,7 +14,7 @@ API_KEY_CREDITS = {
 }
 
 GEMINI_API_KEY = config("GEMINI_API_KEY")
-GEMINI_MODEL_NAME = config("GEMINI_MODEL_NAME", default="gemini-1.5-flash")
+GEMINI_MODEL_NAME = config("GEMINI_MODEL_NAME", default="gemini-2.0-flash")
 
 
 @app.get("/health")
@@ -53,6 +54,7 @@ def generate_gemini(prompt: str, x_api_key: str = Depends(verify_api_key)):
         response = client.models.generate_content(
             model=GEMINI_MODEL_NAME, contents=[prompt]
         )
+        calculate_and_log_usage(response.usage_metadata, GEMINI_MODEL_NAME)
         return {"response": response.text}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Gemini API error: {e}")
@@ -61,7 +63,7 @@ def generate_gemini(prompt: str, x_api_key: str = Depends(verify_api_key)):
 @app.post(
     "/parse_bill",
     dependencies=[
-        Depends(RateLimiter(times=1, minutes=1)),
+        Depends(RateLimiter(times=2, minutes=1)),
         Depends(RateLimiter(times=10, hours=1)),
     ],
 )

@@ -6,11 +6,12 @@ from google import genai
 from PIL import Image
 
 from .logger import init_logger
+from .token_usage import calculate_and_log_usage
 
 logger = init_logger(__name__)
 
 GEMINI_API_KEY = config("GEMINI_API_KEY")
-MODEL_NAME = "gemini-1.5-flash"
+MODEL_NAME = config("GEMINI_MODEL_NAME", default="gemini-2.0-flash")
 
 client = genai.Client(api_key=GEMINI_API_KEY)
 
@@ -69,11 +70,13 @@ async def parse_bill(file: UploadFile):
             contents=[prompt, image],
         )
 
+        calculate_and_log_usage(response.usage_metadata, MODEL_NAME)
+
         json_result = clean_and_parse_json(response.text)
         if not json_result:
             logger.warning(f"Failed to parse receipt: {file.filename} as JSON")
             return {"type": "text", "data": response.text}
-        
+
         logger.info(f"Successfully parsed receipt: {file.filename}")
         return {"type": "json", "data": json_result}
     except FileNotFoundError:

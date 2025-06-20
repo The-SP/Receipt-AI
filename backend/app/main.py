@@ -17,7 +17,7 @@ API_KEY_CREDITS = {
 }
 
 GEMINI_API_KEY = config("GEMINI_API_KEY")
-GEMINI_MODEL_NAME = config("GEMINI_MODEL_NAME", default="gemini-1.5-flash")
+GEMINI_MODEL_NAME = config("GEMINI_MODEL_NAME", default="gemini-2.0-flash")
 
 # Initialize LangChain Google Generative AI client
 llm = ChatGoogleGenerativeAI(

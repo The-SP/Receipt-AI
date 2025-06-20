@@ -1,27 +1,25 @@
+import base64
 import json
+from io import BytesIO
 
-from decouple import config
 from fastapi import HTTPException, UploadFile
-from google import genai
+from langchain_core.messages import HumanMessage
+from langchain_google_genai import ChatGoogleGenerativeAI
 from PIL import Image
 
 from .logger import init_logger
 
 logger = init_logger(__name__)
 
-GEMINI_API_KEY = config("GEMINI_API_KEY")
-MODEL_NAME = "gemini-1.5-flash"
 
-client = genai.Client(api_key=GEMINI_API_KEY)
-
-
-async def parse_bill(file: UploadFile):
+async def parse_bill(file: UploadFile, llm: ChatGoogleGenerativeAI):
     """
-    Parses a bill image using Gemini API and returns the information in JSON format.
+    Parses a bill image using Gemini API via LangChain and returns the information in JSON format.
     If the image is not a receipt, returns the text analysis instead.
 
     Args:
         file: UploadFile object containing the bill image.
+        llm: LangChain Google Generative AI client instance.
 
     Returns:
         A JSON object containing either the parsed bill information or text analysis.
@@ -30,7 +28,14 @@ async def parse_bill(file: UploadFile):
         HTTPException: If there is an error during processing.
     """
     try:
-        image = Image.open(file.file)
+        # Read and process the image
+        image_data = await file.read()
+        image = Image.open(BytesIO(image_data))
+
+        # Convert image to base64 for LangChain
+        buffered = BytesIO()
+        image.save(buffered, format="PNG")
+        image_base64 = base64.b64encode(buffered.getvalue()).decode()
 
         prompt = """Extract the following information from this bill and return it in JSON format:
         - Restaurant Name
@@ -63,17 +68,25 @@ async def parse_bill(file: UploadFile):
         }
         """
 
-        logger.info("Sending request to Gemini API")
-        response = client.models.generate_content(
-            model=MODEL_NAME,
-            contents=[prompt, image],
+        # Create message with image for LangChain
+        message = HumanMessage(
+            content=[
+                {"type": "text", "text": prompt},
+                {
+                    "type": "image_url",
+                    "image_url": {"url": f"data:image/png;base64,{image_base64}"},
+                },
+            ]
         )
 
-        json_result = clean_and_parse_json(response.text)
+        logger.info("Sending request to Gemini API via LangChain")
+        response = llm.invoke([message])
+
+        json_result = clean_and_parse_json(response.content)
         if not json_result:
             logger.warning(f"Failed to parse receipt: {file.filename} as JSON")
-            return {"type": "text", "data": response.text}
-        
+            return {"type": "text", "data": response.content}
+
         logger.info(f"Successfully parsed receipt: {file.filename}")
         return {"type": "json", "data": json_result}
     except FileNotFoundError:

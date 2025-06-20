@@ -1,10 +1,14 @@
 from decouple import config
+from dotenv import load_dotenv
 from fastapi import Depends, FastAPI, File, Header, HTTPException, UploadFile
 from fastapi_limiter.depends import RateLimiter
-from google import genai
+from langchain_google_genai import ChatGoogleGenerativeAI
+from langsmith import traceable
 
 from app.utils.parse_bill import parse_bill
 from app.utils.rate_limiting import lifespan
+
+load_dotenv()
 
 app = FastAPI(lifespan=lifespan)
 
@@ -14,6 +18,11 @@ API_KEY_CREDITS = {
 
 GEMINI_API_KEY = config("GEMINI_API_KEY")
 GEMINI_MODEL_NAME = config("GEMINI_MODEL_NAME", default="gemini-1.5-flash")
+
+# Initialize LangChain Google Generative AI client
+llm = ChatGoogleGenerativeAI(
+    model=GEMINI_MODEL_NAME, google_api_key=GEMINI_API_KEY, temperature=0
+)
 
 
 @app.get("/health")
@@ -46,14 +55,12 @@ def verify_api_key(x_api_key: str = Header(None)):
 
 
 @app.post("/gemini/generate")
+@traceable(name="gemini_generate_api")
 def generate_gemini(prompt: str, x_api_key: str = Depends(verify_api_key)):
     API_KEY_CREDITS[x_api_key] -= 1
     try:
-        client = genai.Client(api_key=GEMINI_API_KEY)
-        response = client.models.generate_content(
-            model=GEMINI_MODEL_NAME, contents=[prompt]
-        )
-        return {"response": response.text}
+        response = llm.invoke(prompt)
+        return {"response": response.content}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Gemini API error: {e}")
 
@@ -65,6 +72,7 @@ def generate_gemini(prompt: str, x_api_key: str = Depends(verify_api_key)):
         Depends(RateLimiter(times=10, hours=1)),
     ],
 )
+@traceable(name="parse_bill_api")
 async def upload_bill(
     file: UploadFile = File(...), x_api_key: str = Depends(verify_api_key)
 ):
@@ -74,7 +82,7 @@ async def upload_bill(
         )
 
     API_KEY_CREDITS[x_api_key] -= 1
-    return await parse_bill(file)
+    return await parse_bill(file, llm)
 
 
 @app.get("/validate-key")
